@@ -1,0 +1,1044 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment = NA, echo=TRUE, warning=TRUE, message=TRUE, cache=TRUE)
+knitr::opts_knit$set(progress = TRUE, verbose = TRUE)
+
+```
+
+
+---
+title: "Modelling.NUPT.age.distribution.Rmd"
+author (name, surname): "Juan Pablo, Marczuk-Rojas"
+date (DD-MM-YY): "04/03/2025"
+output: html_document
+---
+
+
+
+# INFERRING MODES OF NUPTS´ FORMATION BASED ON CORRECTED SUBSTITUTION RATES (K)
+
+ 
+
+
+## 1. Load required libraries :
+
+```{r lib}
+#install.packages(c('ggplot2'))
+library("ggplot2")
+#install.packages(c("ggpubr"))
+library("ggpubr")
+library("grid")
+library("gridExtra")
+#install.packages("reshape2")
+library("reshape2")
+#install.packages("broom")
+library("broom")
+#install.packages("data.table")
+library("data.table") 
+#install.packages("tidyverse")
+library("tidyverse")
+#install.packages(c("knitr"))
+library("knitr")
+
+
+
+library("readxl")
+
+
+#install.packages('mixtools')
+library("mixtools")
+citation("mixtools")
+
+
+
+
+```
+
+## 2.1 Load datasets (NUPTs):
+
+For each of the 30 angiosperm species selected for the study we performed BLASTN alignments between their respective plastid and nuclear genomes to detect putative NUPTs. BLAST alignments were performed using the following settings: -evalue 1e-5 -word_size 9 -penalty − 2 -show_gis -dust yes -num_threads 8. It is important to note that the -dust setting filters out spurious alignments derived from putative low complexity regions in the plastid genome. 
+
+
+Plus, the coordinates of BLAST alignments corresponding to the negative/bottom strand of the subject (nuclear genome) are inverted (they appear as END-START) , therefore, we have to re-invert them. Some of these inverted BLAST alignments are derived from one of the Inverted Repeat (IR) regions in the query (plastid genome). The final dataset that will be used for the experiments will not contain such redundant NUPTs corresponding to identical alignments. 
+
+
+
+```{r data}
+
+
+# Load BLAST alignments in tabular format (30 species = 30 files)
+
+
+setwd( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST6_Plastid2Nuc_results'  )
+
+files <- list.files(path =  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST6_Plastid2Nuc_results' , pattern = "*.out")  # BLAST results (alignments in tabular format)
+
+
+BLAST <-  lapply(  files  , function(x) read.delim(x,  sep = "\t" , header = FALSE ) )
+names(BLAST) <-  gsub("\\..*", "", files ) 
+BLAST <- BLAST[ sort(names(BLAST) ) ]
+
+BLAST.columns <- c('qseqid', 'sseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore')
+
+
+BLAST <- lapply(  BLAST, setNames, nm = BLAST.columns )
+
+for( i in names(BLAST) )  {
+  
+  BLAST[[i]]$Species <- i
+  
+}
+
+
+
+#write.table(  rbindlist(BLAST), file = '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST_NUPT.tsv',  append = FALSE,  quote = FALSE, sep = "\t", na = "NA", dec = ".", row.names = FALSE,  col.names = FALSE)
+  
+
+
+
+# Load table containing genome properties of each species.
+Genomes_properties <-  read_excel('/home/ubuntu/Papers_research/Genomes_NUPT_paper/Properties_genomes_NUPTs.xlsx', sheet = "Properties_genomes")  
+                                 
+Genomes_properties <- Genomes_properties %>% arrange(Species)
+
+
+
+```
+
+
+
+## 2.2 Prepare datasets (NUPTs):
+
+In https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-024-09979-5, we examined the relative age distribution of NUPTs using the percent identity (pident) of the corresponding BLASTN alignments as a proxy of evolutionary time. Assuming the mutation rate is proportional to evolutionary time, i. e., the molecular clock hypothesis holds, the lower the percent identity, the older the NUPTs. Here, we utilized a more accurate metric: genetic distance (p) corrected by one-parameter methods (Jukes and Cantor, 1969) which we called K. The correction is made to account for multiple nucleotide substitutions per site.
+
+Plus, the coordinates of BLAST alignments in the negative strand of the subject (nuclear genome) are inverted, therefore, we have to re-invert them. Some of these BLAST alignments corresponded to one of the Inverted Repeat (IR) regions in the query (plastid genome). 
+
+
+
+
+```{r Create Final Datasets }
+
+BLAST  <- lapply(BLAST, function(x) {
+  x$Strand <- x$send - x$sstart     # substrate coordinates of alignment in subject (nuclear genome) and store the results in a new column called Strand
+  x.NotInverted <- x %>% filter(Strand > 0) # extract alignments in positive strand (positive numbers)
+  x.Inverted <- x %>% filter(Strand < 0)   # extract alignments in negative strand (negative numbers)
+  x.Inverted <-    transform(x.Inverted, sstart = send, send = sstart ) # swap  columns containing the inverted coordinates
+  x <- rbind(x.NotInverted, x.Inverted) # merge dataframes
+  x <- x[with(x, order(sseqid, sstart)),] # sort by subject id and START coordinate
+  x <- x %>% mutate(Strand = case_when(        ## Replace numbers by strand symbols, i.e., "+" and "-"
+                    Strand < 0 ~ "-" ,
+                    Strand > 0 ~ "+" ) ) 
+ 
+  x <-  x[!duplicated(x[c(1:6, 9:12)]),]  ## Eliminate IR-derived redundant NUPTs which correspond to identical/duplicated BLAST alignments
+  
+   x <- x %>% mutate( genetic_distance =   ( mismatch/( length-gapopen ) ) , ## caculate genetic distance or mismatch rate (p)
+                     corrected_genetic_distance = (-3/4)*log( 1 - ( (4  * genetic_distance) / 3 ) ) ) ## correct with Jukes-Cantor model 
+  
+  #x <- x %>% filter( length >= 100 )
+  
+} )
+
+
+```
+
+
+## 3. Classification of K distributions
+
+According to the literature, three models of distribution of NUPTs' ages (here measured in K) have been reported: 1) exponential, 2) unimodal, and 3) multimodal. Each type of distribution represents a different mode of NUPTs´ formation and fixation throughout time. 
+
+
+* Exponential distribution indicates NUPTs are integrated and eliminated in a constant rate (see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1069690/  and https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3989485/). However, very "old" NUPTs (here tentatively  defined as those featuring percent identity lower than 70%) could not be detected, thus, we might be obtaining an infraestimation of the actual quantity of plastid DNA present in nuclear genomes.    
+ 
+
+* Uni/multimodal distribution indicates NUPTs originated via one or multiple episodic formation events throughout time (https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-024-09979-5; https://onlinelibrary.wiley.com/doi/full/10.1111/jse.13065). Hence, NUPTs' ages follow a Gaussian distribution (unimodality) or a mixture model of two or more Gaussians, GMMs (bi/multimodality). Nevertheless, as previously stated, very old NUPTs could not be detected; therefore, we can only identify very recent formation episodes.
+
+
+Other possible distribution model is the mixture of exponential and Normal/Gaussian(s), exponential-normal mixture model, which includes both formation modes. We also included in the classification these models, specifically, the mixture of one exponential and one normal since only very recent formation episodes can be detected using BLAST alignments. 
+
+
+A collection of R scripts from (https://academic.oup.com/gbe/article/10/11/2882/5100828; https://github.com/gtiley/Ks_plots) was employed to fit and estimate the parameters and log-likelihood of four models: exponential, normal (unimodal), bimodal and mixture of exponential and Gaussian. This R script collection was originally intended for modelling distributions of synonymous mutation rates (KS) and requires the R package **mixtools** as dependency. We used the following functions from the the scripts:
+
+
+* mixEM: 
+* bic.test.wgd:
+
+
+
+We employed the Bayesian Information Criterion (BIC) to compare the models and select the one that best fits the data. Among all information criteria, BIC has been shown to outperform others in model selection (Steele and Raftery 2010). BIC is defined as BIC = −2 × log-likelihood + log(Number of observations) × Number of parameters. Also, deltaBIC will be used to compare the models.
+
+
+The execution time of the scripts was very long, therefore, we saved the R objects in an Rdata file. Below, the employed pieces of codes:
+
+
+```{r mixEM.model.1_fun, fig.width=18, fig.height=12}
+
+
+load( "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/Ks_plots-master/Mixture_model_analyses_functions.RData" ) # Collection of R functions for univariate mixture model analysis retrieved from https://github.com/gtiley/Ks_plots
+
+
+## Exponential-Gaussian model
+
+fit_exp_norm_mixEM <- BLAST
+
+
+for(i in names(fit_exp_norm_mixEM) ) {
+  
+ 
+  
+  fit_exp_norm_mixEM[[i]] <-   mixEM(fit_exp_norm_mixEM[[i]]$corrected_genetic_distance, k=2, model = 1, 
+                                     nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+  
+}
+
+
+## Exponential-only model
+
+fit_exp_mixEM <- BLAST
+
+
+for(i in names(fit_exp_mixEM) ) {
+  
+  fit_exp_mixEM[[i]] <-   mixEM(fit_exp_mixEM[[i]]$corrected_genetic_distance, k=1, model = 1, 
+                                     nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+  
+}
+
+
+## Unimodal model
+
+fit_unimodal_mixEM <- BLAST
+
+
+for(i in 1:length(fit_unimodal_mixEM) ) {
+  
+  fit_unimodal_mixEM[[i]] <-   mixEM(fit_unimodal_mixEM[[i]]$corrected_genetic_distance, k=1, model = 4, 
+                                nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+  
+}
+
+
+
+## Bimodal model
+
+
+fit_bimodal_mixEM <- BLAST
+
+
+for(i in 1:length(fit_bimodal_mixEM) ) {
+  
+  fit_bimodal_mixEM[[i]] <-   mixEM(fit_bimodal_mixEM[[i]]$corrected_genetic_distance, k=2, model = 4, 
+                                     nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+  
+
+  }
+
+
+
+## Calculate BIC
+
+BIC <- vector()
+Species <- names(BLAST)
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_exp_norm_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 4
+  
+}
+
+
+classification.exponential_normal <- data.frame( Best_fitted_distribution = "exponential_normal" , BIC = BIC , Species = Species  )
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_exp_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 1
+  
+}
+
+
+classification.exponential <- data.frame( Best_fitted_distribution = "exponential", BIC = BIC , Species = Species  )
+
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_unimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 2
+  
+  
+  
+}
+
+
+classification.unimodal <- data.frame( Best_fitted_distribution = "unimodal" , BIC = BIC , Species = Species  )
+
+
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_bimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 5
+  
+  
+  
+}
+
+
+classification.bimodal <- data.frame( Best_fitted_distribution = "bimodal" , BIC = BIC , Species = Species  )
+
+
+
+
+
+Best_fit <-  rbind( classification.exponential_normal,  classification.exponential, classification.unimodal  , classification.bimodal    ) %>% arrange(Species) %>%  group_by( Species )  %>% filter( BIC == min(BIC) )
+
+
+## Caulculate deltaBIC
+
+
+Best_fit_deltaBIC <-  rbind(  classification.exponential, classification.unimodal  , classification.bimodal ,  classification.exponential_normal ) %>% arrange(Species) %>% group_by( Species ) %>% mutate( deltaBIC =     BIC  - min(BIC),  relative_difference_pc =  deltaBIC/min(BIC) * 100 )
+
+
+
+
+save( fit_exp_norm_mixEM, fit_exp_mixEM,  fit_unimodal_mixEM ,  fit_bimodal_mixEM , 
+      Best_fit, Best_fit_deltaBIC , file = "/home/ubuntu/Fitted_Mixtures_NUPTs_K_0.RData")
+
+
+
+```
+
+
+
+
+```{r mixEM.model.2_fun, fig.width=18, fig.height=12}
+
+
+load( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_0.RData' ) # Models fitted to the 30-species dataset 
+
+
+# load(  "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/NUPTs.classify.age.distribution_def.RData" )  # Load environment
+
+
+```
+
+
+
+
+## 4. Selection of the best model
+
+
+#### 4.1. Comparison of models reported by the literature
+
+We first compared the three models reported in the literature plus the mixture of one exponential and one Gaussian. 
+
+```{r BIC_fun1, fig.width=18, fig.height=12}
+
+
+BIC <- vector()
+Species <- names(BLAST)
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_exp_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 1
+  
+}
+
+
+classification.exponential <- data.frame( Best_fitted_distribution = "exponential", BIC = BIC , Species = Species  )
+
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_unimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 2
+ 
+  
+   
+}
+
+
+classification.unimodal <- data.frame( Best_fitted_distribution = "unimodal" , BIC = BIC , Species = Species  )
+
+
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_bimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 5
+ 
+  
+   
+}
+
+
+classification.bimodal <- data.frame( Best_fitted_distribution = "bimodal" , BIC = BIC , Species = Species  )
+
+
+
+
+
+
+for( i in 1:length(BLAST)  ){
+  
+  BIC[i] <-  -2 * fit_exp_norm_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 4
+  
+}
+
+
+classification.exponential_normal <- data.frame( Best_fitted_distribution = "exponential_normal" , BIC = BIC , Species = Species  )
+
+
+
+
+
+Best_fit <-  rbind(  classification.exponential, classification.unimodal  , classification.bimodal ,  classification.exponential_normal  ) %>% arrange(Species) %>%  group_by( Species )  %>% filter( BIC == min(BIC) )
+
+
+kable(Best_fit)
+
+
+
+
+```
+
+
+#### 4.2. Compararison of the two best models per species based on DeltaBIC and relative difference
+
+We calculate the DeltaBIC and relative difference to assess the distance between the two best models 
+
+
+```{r BIC_fun2, fig.width=18, fig.height=12}
+
+Best_fit_deltaBIC <-  rbind(  classification.exponential, classification.unimodal  , classification.bimodal ,  classification.exponential_normal ) %>% arrange(Species) %>% group_by( Species ) %>% mutate( deltaBIC =     BIC  - min(BIC),  relative_difference_pc =  abs(deltaBIC/min(BIC)) * 100 )   %>% arrange(Species, relative_difference_pc)
+
+
+Best_fit_deltaBIC.slight <- Best_fit_deltaBIC %>% filter( relative_difference_pc <= 1 )
+
+Best_fit_deltaBIC_two_best_models <- Best_fit_deltaBIC %>% group_by(Species) %>% slice_min(BIC, n = 2) 
+
+
+
+kable(Best_fit_deltaBIC_two_best_models)
+
+
+```
+
+
+#### 4.3. Replicates
+
+We generated 15 replicates and counted how many times each model was selected as the best fit.
+
+
+##### 4.3.1. Create replicates
+
+
+The execution time of the following piece of code was very long, therefore, we saved the R objects in an Rdata file. 
+
+
+```{r  mixEM.model.3_fun, fig.width=18, fig.height=12}
+
+
+list_fit_exp_norm_mixEM <- list() 
+list_fit_exp_mixEM  <- list() 
+list_fit_unimodal_mixEM  <- list()
+list_fit_bimodal_mixEM  <- list()
+list_Best_fit <- list()
+list_Best_fit_deltaBIC  <- list()
+
+
+  
+for( z in  c(1:15)  ) {
+  
+  
+  fit_exp_norm_mixEM <- BLAST
+  
+  
+  for(i in names(fit_exp_norm_mixEM) ) {
+    
+    fit_exp_norm_mixEM[[i]] <-   mixEM(fit_exp_norm_mixEM[[i]]$corrected_genetic_distance, k=2, model = 1, 
+                                       nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+    
+  }
+  
+  
+  list_fit_exp_norm_mixEM[[z]] <-   fit_exp_norm_mixEM 
+  
+  
+  
+  
+  fit_exp_mixEM <- BLAST
+  
+  
+  for(i in names(fit_exp_mixEM) ) {
+    
+    fit_exp_mixEM[[i]] <-   mixEM(fit_exp_mixEM[[i]]$corrected_genetic_distance, k=1, model = 1, 
+                                  nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+    
+  }
+  
+  
+  list_fit_exp_mixEM[[z]] <-   fit_exp_mixEM 
+  
+  
+  
+  
+  fit_unimodal_mixEM <- BLAST
+  
+  
+  for(i in 1:length(fit_unimodal_mixEM) ) {
+    
+    fit_unimodal_mixEM[[i]] <-   mixEM(fit_unimodal_mixEM[[i]]$corrected_genetic_distance, k=1, model = 4, 
+                                       nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+    
+  }
+  
+  
+  
+  
+  list_fit_unimodal_mixEM[[z]] <-    fit_unimodal_mixEM
+  
+  
+  fit_bimodal_mixEM <- BLAST
+  
+  
+  for(i in 1:length(fit_bimodal_mixEM) ) {
+    
+    fit_bimodal_mixEM[[i]] <-   mixEM(fit_bimodal_mixEM[[i]]$corrected_genetic_distance, k=2, model = 4, 
+                                      nstarts = 100, epsilon = 1e-08, maxit = 1000, maxrestarts=20, verb=0 )
+    
+  }
+  
+  
+  list_fit_bimodal_mixEM[[ z ]] <-    fit_bimodal_mixEM
+  
+  
+  
+  
+  
+  
+  BIC <- vector()
+  Species <- names(BLAST)
+  
+  
+  for( i in 1:length(BLAST)  ){
+    
+    BIC[i] <-  -2 * fit_exp_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 1
+    
+  }
+  
+  
+  classification.exponential <- data.frame( Best_fitted_distribution = "exponential", BIC = BIC , Species = Species  )
+  
+  
+  
+  
+  for( i in 1:length(BLAST)  ){
+    
+    BIC[i] <-  -2 * fit_unimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 2
+    
+    
+    
+  }
+  
+  
+  classification.unimodal <- data.frame( Best_fitted_distribution = "unimodal" , BIC = BIC , Species = Species  )
+  
+  
+  
+  
+  
+  for( i in 1:length(BLAST)  ){
+    
+    BIC[i] <-  -2 * fit_bimodal_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 5
+    
+    
+    
+  }
+  
+  
+  classification.bimodal <- data.frame( Best_fitted_distribution = "bimodal" , BIC = BIC , Species = Species  )
+  
+  
+  
+  
+  
+  
+  for( i in 1:length(BLAST)  ){
+    
+    BIC[i] <-  -2 * fit_exp_norm_mixEM[[i]]$loglik  + log( nrow(BLAST[[i]] ) ) * 4
+    
+  }
+  
+  
+  classification.exponential_normal <- data.frame( Best_fitted_distribution = "exponential_normal" , BIC = BIC , Species = Species  )
+  
+  
+  
+  Best_fit <-  rbind(  classification.exponential, classification.unimodal  , classification.bimodal ,  classification.exponential_normal  ) %>% arrange(Species) %>%  group_by( Species )  %>% filter( BIC == min(BIC) )
+  
+   list_Best_fit[[z]] <- Best_fit
+  
+   
+   
+  Best_fit_deltaBIC <-  rbind(  classification.exponential, classification.unimodal  , classification.bimodal ,  classification.exponential_normal ) %>% arrange(Species) %>% group_by( Species ) %>% mutate( deltaBIC =     BIC  - min(BIC),  relative_difference_pc =  deltaBIC/min(BIC) * 100 )
+
+
+  list_Best_fit_deltaBIC[[ z ]]  <- Best_fit_deltaBIC
+
+  
+}
+
+
+
+
+
+save( list_fit_exp_norm_mixEM, list_fit_exp_mixEM,  list_fit_unimodal_mixEM ,  list_fit_bimodal_mixEM , 
+      list_Best_fit, list_Best_fit_deltaBIC , file = "/home/ubuntu/Fitted_Mixtures_NUPTs_K_list_1.RData")
+
+
+
+
+```
+
+
+##### 4.3.2. Compare replicates
+
+
+```{r BIC_fun3, fig.width=18, fig.height=12}
+
+
+load(  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_list_1.RData' )  # R objects 
+
+
+
+Best_fit_replicates <- Best_fit_replicates_1  %>% group_by(Species, Best_fitted_distribution ) %>% summarise( n = sum(n) )
+
+
+
+Best_fit_replicates.total.match <-   Best_fit_replicates %>% filter( n == 15 )
+Best_fit_replicates.unmatch <-   Best_fit_replicates %>% filter( n < 15 )
+
+Best_fit_replicates.final_model <-  Best_fit_replicates %>% group_by( Species )  %>% filter( n == max(n) )
+kable(Best_fit_replicates.final_model)
+
+
+```
+
+
+
+#### 4.4. Classification based on posterior probabilites  
+
+
+For the mixture models we assigned each NUPT to one component or another using the posterior probabilities calculated for each component as explained here (https://tinyheero.github.io/2015/10/13/mixture-model.html). 
+If all NUPTs are assigned to only one component, the mixture model is replaced by a one-component model.
+
+
+
+```{r Post_prob,  fig.width=34, fig.height=15}
+
+
+Best_fit.exponential_normal <- Best_fit_replicates.final_model %>% filter( Best_fitted_distribution == "exponential_normal" )
+
+
+x <- data.frame()
+
+zz <- list()
+
+for(i in  sort( c(Best_fit.exponential_normal$Species  )  )    ) {
+  
+z <-  cbind(  data.frame(  K = fit_exp_norm_mixEM[[i]]$x  ,
+                           
+                           NUPT = paste0("NUPT_", seq_len(  length(fit_exp_norm_mixEM[[i]]$x) ) ),
+                           
+                           density_exp = fit_exp_norm_mixEM[[i]]$lambda[1]*dexp( BLAST[[i]]$corrected_genetic_distance , rate =  1/fit_exp_norm_mixEM[[i]]$parameters[2,1]  ),
+                           
+                           density_norm =   fit_exp_norm_mixEM[[i]]$lambda[2]*dnorm( BLAST[[i]]$corrected_genetic_distance , mean = fit_exp_norm_mixEM[[i]]$parameters[1,2], sd = fit_exp_norm_mixEM[[i]]$parameters[2,2] )      ),
+              
+fit_exp_norm_mixEM[[i]][["posterior"]]
+
+)
+
+
+colnames(z)  <- c("K", "NUPT" , "Density.exp",  "Density.norm" , paste0( "Comp.", seq_len( ncol(  fit_exp_norm_mixEM[[i]][["posterior"]]   ) ) ) )
+
+z$Species <- i
+
+z <- z %>% pivot_longer( -c(K, NUPT,  Density.exp,  Density.norm, Species ) , values_to = "Posterior", names_to = "Comp"  ) %>% group_by(NUPT) %>% filter( Posterior == max(   Posterior  ) ) %>% mutate( color = case_when(  Comp == "Comp.1" ~ "gold",  Comp == "Comp.2" ~ "red"  )  )
+
+zz[[i]] <-  z
+
+z <- z  %>%  group_by( Comp )  %>% summarise( Number = n(), PC = n()/nrow(z) * 100, Species = i )
+x <- rbind( x, z )
+
+}
+
+
+Best_fit.exponential_normal.proportions  <-  x %>% mutate( Number_PC = paste0( formatC( Number , format="f", big.mark="," , digits=0  ) , " (", round(PC,2), "%)" )  ) %>% 
+  dplyr::select( -c(Number, PC)  )  %>% pivot_wider( id_cols = Species, names_from = Comp, values_from = Number_PC )
+
+
+
+###
+
+
+Best_fit.bimodal <- Best_fit_replicates.final_model %>% filter( Best_fitted_distribution == "bimodal" ) 
+
+
+ x <- data.frame() 
+
+zz <- list()
+ 
+for(i in Best_fit.bimodal$Species ) {  
+  
+z <-  cbind(  data.frame( K = fit_bimodal_mixEM[[i]][["x"]] ) , 
+              
+              NUPT = paste0("NUPT_", seq_len(  nrow(fit_bimodal_mixEM[[i]][["posterior"]]  )  )  ),
+              
+              fit_bimodal_mixEM[[i]][["posterior"]]    )
+
+
+
+colnames(z)  <- c("K", "NUPT"  , paste0( "Comp.", seq_len( ncol(  fit_bimodal_mixEM[[i]][["posterior"]]   ) ) ) ) 
+
+zz <- nrow(z)   
+
+z <- z %>% pivot_longer( -c(K, NUPT) , values_to = "Posterior", names_to = "Comp"  ) %>% group_by(NUPT) %>% #filter( Posterior >= 0.95 )
+ filter( Posterior == max(   Posterior  )  ) 
+
+
+z <- z  %>%  group_by( Comp )  %>% summarise( Number = n(), PC = n()/zz * 100, Species = i )
+
+if(  sum( z$PC ) != 100   ) {
+  
+  z <- rbind( z , data.frame( Comp = "No.comp",  Number = zz - sum(z$Number) ,  PC = zz - sum(z$Number)/zz * 100,  Species = i  ) ) 
+  
+  
+}
+
+x <- rbind( x, z )
+
+}
+
+
+Best_fit.bimodal.proportions <-  x %>% mutate( Number_PC = paste0( formatC( Number , format="f", big.mark="," , digits=0  ) , " (", round(PC,2), "%)" )  ) %>% 
+  dplyr::select( -c(Number, PC)  )  %>% pivot_wider( id_cols = Species, names_from = Comp, values_from = Number_PC ) 
+
+
+
+```
+
+
+
+
+## 5. Fitting density curves to histograms of K
+
+We calculated density values by applying the density function corresponding to each component:
+
+
+Exponential:   lambda[1]*dexp( corrected_genetic_distance , rate =  1/mean  )
+Normal:        lambda*dnorm( corrected_genetic_distance , mean = mean , sd = standard deviation )
+
+
+
+#### 5.1. Exponential-normal model 
+
+```{r density_histogram_1_fun, fig.width=34, fig.height=15}
+
+Density_histogram_curve_ <- BLAST
+
+
+
+for(i in Best_fit$Species ) {  
+  
+  
+  density_exp <- fit_exp_norm_mixEM[[i]]$lambda[1]*dexp( Density_histogram_curve_[[i]]$corrected_genetic_distance , rate =  1/fit_exp_norm_mixEM[[i]]$parameters[2,1]  )
+  
+  
+  density_norm  <- fit_exp_norm_mixEM[[i]]$lambda[2]*dnorm( Density_histogram_curve_[[i]]$corrected_genetic_distance , mean = fit_exp_norm_mixEM[[i]]$parameters[1,2], sd = fit_exp_norm_mixEM[[i]]$parameters[2,2] )
+  
+  
+  
+  plot <- ggplot(  )  +  
+    
+        geom_histogram( data = Density_histogram_curve_[[i]], aes(x = corrected_genetic_distance, y = after_stat(density) ) ,  bins = 20, fill = "grey", color = "black", boundary = 0  ) +  # Important! By default, bins are centered at ticks. To change this behavior, set a boundary
+    
+       geom_line(data =  data.frame( corrected_genetic_distance = Density_histogram_curve_[[i]]$corrected_genetic_distance, density_exp = density_exp  )    , aes(x = corrected_genetic_distance, y = density_exp ), color = "gold" , linetype = "solid", linewidth = 2.5  )   +
+    
+    geom_line(data =  data.frame( corrected_genetic_distance = Density_histogram_curve_[[i]]$corrected_genetic_distance, density_norm  = density_norm   ) , aes(x = corrected_genetic_distance, y = density_norm ), color = "red", linetype = "solid", linewidth = 2.5  ) +
+    
+    
+      facet_wrap( ~ Species) +
+    
+      scale_y_continuous(labels = prettyNum    ) +
+      scale_x_continuous(breaks = c(seq(from = 0, to = 0.4, by = 0.1)) , labels =  c(seq(from = 0, to = 0.4, by = 0.1)), limits = c(NA, 0.45)  ) +  # To set scale limits, use NA to enter the lowest/highest values  
+  theme_classic() +
+    theme(
+      legend.title = element_text(face = "bold", vjust = 0.5),
+      legend.position = "none",
+      #axis.title.x = element_text(size = 28, face = "bold", vjust = 0.5),
+      #axis.title.y = element_text(size = 28, face = "bold", vjust = 0.5) )
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 26, face = "bold", vjust = 0.5),
+      axis.text.y = element_text(size = 26, face = "bold"), 
+                 axis.line.x =  element_line( linewidth = 1.5 ),
+      axis.line.y =  element_line( linewidth = 1.5 ),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold", size = 28 ),
+      # strip.placement = "outside",
+      plot.title = element_text(face = "bold",size = 18, hjust = 0.5, vjust = 0.5 ) ) +
+    
+    xlab("K (Subs/site)") + ylab("Density")
+  
+  
+  Density_histogram_curve_[[i]] <- plot
+  
+  
+  
+  
+  
+  }
+
+
+
+
+Density_histogram_curve_exp_normal <- Density_histogram_curve_
+
+
+ ggarrange(plotlist = Density_histogram_curve_exp_normal  ,  align = "hv", 
+                                           nrow = 4, ncol = 8, vjust = 0, hjust = 0,
+                                           font.label = list(size = 30) )
+
+
+```
+
+
+
+#### 5.2. Bimodal model
+
+```{r density_histogram_2_fun, fig.width=34, fig.height=15}
+
+
+Density_histogram_curve_ <- BLAST
+
+for(i in Best_fit$Species ) {  
+  
+  
+components.parameters <- as.data.frame(fit_bimodal_mixEM[[i]]$parameters)
+components.parameters[3,] <- fit_bimodal_mixEM[[i]]$lambda
+rownames( components.parameters ) <- c("mu", "sigma", "lambda")
+components.parameters <- rownames_to_column(components.parameters, var =  "Parameters" )
+components.parameters <- components.parameters %>% pivot_longer ( -"Parameters", names_to = "Comp", values_to = "Value") # Reformat the original table 
+
+
+components.density <- split( components.parameters, components.parameters$Comp ) # Extract parameters associated to each component/cluster for density function
+                                
+components.density <- lapply(components.density, function(x) {
+
+    y <- data.frame(
+    corrected_genetic_distance = Density_histogram_curve_[[i]]$corrected_genetic_distance,
+    density = x$Value[3]*dnorm( Density_histogram_curve_[[i]]$corrected_genetic_distance, mean = x$Value[1], sd = x$Value[2] ),  # Apply density function  
+    comp = unique( x$Comp )
+    
+  )  } )
+
+components.density <- rbindlist(components.density )
+
+
+  plot <- ggplot(  )  +  
+        geom_histogram( data = Density_histogram_curve_[[i]], aes(x = corrected_genetic_distance, y = after_stat(density) ) ,  bins = 20, fill = "grey", color = "black", boundary = 0  ) + # Important! By default, bins are centered at ticks. To change this behavior, set a boundary
+       
+    geom_line(data = components.density, aes(x = corrected_genetic_distance, y = density, color = comp), linetype = "solid", linewidth = 2.5  ) +
+    
+    
+      facet_wrap( ~ Species) +
+      scale_y_continuous(labels = prettyNum    ) +
+      scale_x_continuous(breaks = c(seq(from = 0, to = 0.4, by = 0.1)) , labels =  c(seq(from = 0, to = 0.4, by = 0.1)), limits = c(NA, 0.45)  ) +  # To set scale limits, use NA to enter the lowest/highest values  
+  theme_classic() +
+    theme(
+      legend.title = element_text(face = "bold", vjust = 0.5),
+      legend.position = "none",
+      #axis.title.x = element_text(size = 28, face = "bold", vjust = 0.5),
+      #axis.title.y = element_text(size = 28, face = "bold", vjust = 0.5) )
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 26, face = "bold", vjust = 0.5),
+      axis.text.y = element_text(size = 26, face = "bold"), 
+                 axis.line.x =  element_line( linewidth = 1.5 ),
+      axis.line.y =  element_line( linewidth = 1.5 ),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold", size = 28 ),
+      # strip.placement = "outside",
+      plot.title = element_text(face = "bold",size = 18, hjust = 0.5, vjust = 0.5 ) ) +
+    
+    scale_color_manual(  values=c( "blue" , "red" ) ) +
+    
+    xlab("K (Subs/site)") + ylab("Density")
+  
+  
+  Density_histogram_curve_[[i]] <- plot
+  
+  
+}
+
+
+Density_histogram_curve_bimodal <- Density_histogram_curve_
+
+
+ggarrange(plotlist = Density_histogram_curve_bimodal,  align = "hv",
+                                           nrow = 4, ncol = 8, vjust = 0, hjust = 0,
+                                           font.label = list(size = 30) )
+
+
+
+
+```
+
+
+
+#### 5.5. Unimodal model
+
+```{r density_histogram_3_fun, fig.width=34, fig.height=15}
+
+
+Density_histogram_curve_ <- BLAST
+
+for(i in Best_fit$Species ) {  
+  
+  
+  density_norm  <- fit_unimodal_mixEM[[i]]$lambda[1]*dnorm( Density_histogram_curve_[[i]]$corrected_genetic_distance , mean = fit_unimodal_mixEM[[i]]$parameters[1,1], sd = fit_unimodal_mixEM[[i]]$parameters[2,1] )
+  
+  
+  plot <- ggplot(  )  +  
+    
+        geom_histogram( data = Density_histogram_curve_[[i]], aes(x = corrected_genetic_distance, y = after_stat(density) ) ,  bins = 20, fill = "grey", color = "black", boundary = 0  ) +  # Important! By default, bins are centered at ticks. To change behavior, set a boundary
+    
+       
+    
+    geom_line(data =  data.frame( corrected_genetic_distance = Density_histogram_curve_[[i]]$corrected_genetic_distance, density_norm  = density_norm   ) , aes(x = corrected_genetic_distance, y = density_norm ), color = "blue", linetype = "solid", linewidth = 2.5  ) +
+    
+    
+      facet_wrap( ~ Species) +
+    
+      scale_y_continuous(labels = prettyNum    ) +
+      scale_x_continuous(breaks = c(seq(from = 0, to = 0.4, by = 0.1)) , labels =  c(seq(from = 0, to = 0.4, by = 0.1)), limits = c(NA, 0.45)  ) +  # To set scale limits, use NA to enter the lowest/highest values  
+  theme_classic() +
+    theme(
+      legend.title = element_text(face = "bold", vjust = 0.5),
+      legend.position = "none",
+      #axis.title.x = element_text(size = 28, face = "bold", vjust = 0.5),
+      #axis.title.y = element_text(size = 28, face = "bold", vjust = 0.5) )
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 26, face = "bold", vjust = 0.5),
+      axis.text.y = element_text(size = 26, face = "bold"), 
+                 axis.line.x =  element_line( linewidth = 1.5 ),
+      axis.line.y =  element_line( linewidth = 1.5 ),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold", size = 28 ),
+      # strip.placement = "outside",
+      plot.title = element_text(face = "bold",size = 18, hjust = 0.5, vjust = 0.5 ) ) +
+    
+    xlab("K (Subs/site)") + ylab("Density")
+  
+  
+  Density_histogram_curve_[[i]] <- plot
+  
+  
+  
+  
+  
+  }
+
+
+Density_histogram_curve_unimodal <- Density_histogram_curve_
+
+
+ggarrange(plotlist = Density_histogram_curve_unimodal ,  align = "hv",
+                                           nrow = 4, ncol = 8, vjust = 0, hjust = 0,
+                                           font.label = list(size = 30) )
+
+
+
+
+```
+
+
+
+#### 5.5. Exponential-only model
+
+```{r density_histogram_4_fun, fig.width=34, fig.height=15}
+
+
+Density_histogram_curve_ <- BLAST
+
+for(i in Best_fit$Species ) {  
+  
+  density_exp <- fit_exp_mixEM[[i]]$lambda[1]*dexp( Density_histogram_curve_[[i]]$corrected_genetic_distance , rate =  1/fit_exp_mixEM[[i]]$parameters[2,1]  )
+  
+  
+  
+  plot <- ggplot(  )  +  
+    
+        geom_histogram( data = Density_histogram_curve_[[i]], aes(x = corrected_genetic_distance, y = after_stat(density) ) ,  bins = 20, fill = "grey", color = "black", boundary = 0  ) +  # Important! By default, bins are centered at ticks. To change behavior, set a boundary
+    
+       
+    
+    
+    
+    geom_line(data =  data.frame( corrected_genetic_distance = Density_histogram_curve_[[i]]$corrected_genetic_distance, density_exp  = density_exp  ) , aes(x = corrected_genetic_distance, y = density_exp ), color = "gold", linetype = "solid", linewidth = 2.5  ) +
+    
+    
+      facet_wrap( ~ Species) +
+    
+      scale_y_continuous(labels = prettyNum    ) +
+      scale_x_continuous(breaks = c(seq(from = 0, to = 0.4, by = 0.1)) , labels =  c(seq(from = 0, to = 0.4, by = 0.1)), limits = c(NA, 0.45)  ) +  # To set scale limits, use NA to enter the lowest/highest values  
+  theme_classic() +
+    theme(
+      legend.title = element_text(face = "bold", vjust = 0.5),
+      legend.position = "none",
+      #axis.title.x = element_text(size = 28, face = "bold", vjust = 0.5),
+      #axis.title.y = element_text(size = 28, face = "bold", vjust = 0.5) )
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 26, face = "bold", vjust = 0.5),
+      axis.text.y = element_text(size = 26, face = "bold"), 
+                 axis.line.x =  element_line( linewidth = 1.5 ),
+      axis.line.y =  element_line( linewidth = 1.5 ),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold", size = 28 ),
+      # strip.placement = "outside",
+      plot.title = element_text(face = "bold",size = 18, hjust = 0.5, vjust = 0.5 ) ) +
+    
+    xlab("K (Subs/site)") + ylab("Density")
+  
+  
+  Density_histogram_curve_[[i]] <- plot
+  
+ 
+  }
+
+
+
+Density_histogram_curve_exponential <- Density_histogram_curve_   
+
+ggarrange(plotlist = Density_histogram_curve_ ,  align = "hv",
+                                           nrow = 4, ncol = 8, vjust = 0, hjust = 0,
+                                           font.label = list(size = 30) )
+
+
+  
+  
+```
+
+
+
+
+
