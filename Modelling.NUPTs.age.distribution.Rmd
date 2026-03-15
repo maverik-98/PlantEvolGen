@@ -68,9 +68,9 @@ Plus, the coordinates of BLAST alignments corresponding to the negative/bottom s
 # Load BLAST alignments in tabular format (30 species = 30 files)
 
 
-setwd( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST6_Plastid2Nuc_results'  )
+setwd( './Alignments/BLAST/BLAST6_Plastid2Nuc_results'  )
 
-files <- list.files(path =  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST6_Plastid2Nuc_results' , pattern = "*.out")  # BLAST results (alignments in tabular format)
+files <- list.files(path =  './Alignments/BLAST/BLAST6_Plastid2Nuc_results' , pattern = "*.out")  # BLAST results (alignments in tabular format)
 
 
 BLAST <-  lapply(  files  , function(x) read.delim(x,  sep = "\t" , header = FALSE ) )
@@ -90,10 +90,7 @@ for( i in names(BLAST) )  {
 
 
 
-#write.table(  rbindlist(BLAST), file = '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST_NUPT.tsv',  append = FALSE,  quote = FALSE, sep = "\t", na = "NA", dec = ".", row.names = FALSE,  col.names = FALSE)
   
-
-
 
 # Load table containing genome properties of each species.
 Genomes_properties <-  read_excel('/home/ubuntu/Papers_research/Genomes_NUPT_paper/Properties_genomes_NUPTs.xlsx', sheet = "Properties_genomes")  
@@ -132,8 +129,7 @@ BLAST  <- lapply(BLAST, function(x) {
   
    x <- x %>% mutate( genetic_distance =   ( mismatch/( length-gapopen ) ) , ## caculate genetic distance or mismatch rate (p)
                      corrected_genetic_distance = (-3/4)*log( 1 - ( (4  * genetic_distance) / 3 ) ) ) ## correct with Jukes-Cantor model 
-  
-  #x <- x %>% filter( length >= 100 )
+
   
 } )
 
@@ -155,7 +151,7 @@ According to the literature, three models of distribution of NUPTs' ages (here m
 Other possible distribution model is the mixture of exponential and Normal/Gaussian(s), exponential-normal mixture model, which includes both formation modes. We also included in the classification these models, specifically, the mixture of one exponential and one normal since only very recent formation episodes can be detected using BLAST alignments. 
 
 
-A collection of R scripts from (https://academic.oup.com/gbe/article/10/11/2882/5100828; https://github.com/gtiley/Ks_plots) was employed to fit and estimate the parameters and log-likelihood of four models: exponential, normal (unimodal), bimodal and mixture of exponential and Gaussian. This R script collection was originally intended for modelling distributions of synonymous mutation rates (KS) and requires the R package **mixtools** as dependency. We used the following functions from the the scripts:
+A collection of R scripts from (https://academic.oup.com/gbe/article/10/11/2882/5100828; https://github.com/gtiley/Ks_plots) was employed to fit and estimate the parameters and log-likelihood of four models: exponential, normal (unimodal), bimodal and mixture of exponential and Gaussian. This R script collection was originally intended for modelling distributions of synonymous mutation rates (Ks) and requires the R package **mixtools** as dependency. We used the following functions from the the scripts:
 
 
 * mixEM: 
@@ -305,7 +301,7 @@ Best_fit_deltaBIC <-  rbind(  classification.exponential, classification.unimoda
 
 
 save( fit_exp_norm_mixEM, fit_exp_mixEM,  fit_unimodal_mixEM ,  fit_bimodal_mixEM , 
-      Best_fit, Best_fit_deltaBIC , file = "/home/ubuntu/Fitted_Mixtures_NUPTs_K_0.RData")
+      Best_fit, Best_fit_deltaBIC , file = "Fitted_Mixtures_NUPTs_K_0.RData")
 
 
 
@@ -317,10 +313,7 @@ save( fit_exp_norm_mixEM, fit_exp_mixEM,  fit_unimodal_mixEM ,  fit_bimodal_mixE
 ```{r mixEM.model.2_fun, fig.width=18, fig.height=12}
 
 
-load( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_0.RData' ) # Models fitted to the 30-species dataset 
-
-
-# load(  "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/NUPTs.classify.age.distribution_def.RData" )  # Load environment
+load( './Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_0.RData' ) # Models fitted to the 30-species dataset 
 
 
 ```
@@ -600,7 +593,7 @@ for( z in  c(1:15)  ) {
 
 
 save( list_fit_exp_norm_mixEM, list_fit_exp_mixEM,  list_fit_unimodal_mixEM ,  list_fit_bimodal_mixEM , 
-      list_Best_fit, list_Best_fit_deltaBIC , file = "/home/ubuntu/Fitted_Mixtures_NUPTs_K_list_1.RData")
+      list_Best_fit, list_Best_fit_deltaBIC , file = './Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_list_replicates.RData' )
 
 
 
@@ -614,7 +607,7 @@ save( list_fit_exp_norm_mixEM, list_fit_exp_mixEM,  list_fit_unimodal_mixEM ,  l
 ```{r BIC_fun3, fig.width=18, fig.height=12}
 
 
-load(  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_list_1.RData' )  # R objects 
+load(  './Mixture_model_analysis/Fitted_Mixtures_NUPTs_K_list_replicates.RData' )  # R objects 
 
 
 
@@ -643,6 +636,8 @@ If all NUPTs are assigned to only one component, the mixture model is replaced b
 
 ```{r Post_prob,  fig.width=34, fig.height=15}
 
+
+### Mixture of exponential and Guassian
 
 Best_fit.exponential_normal <- Best_fit_replicates.final_model %>% filter( Best_fitted_distribution == "exponential_normal" )
 
@@ -685,7 +680,7 @@ Best_fit.exponential_normal.proportions  <-  x %>% mutate( Number_PC = paste0( f
 
 
 
-###
+### Mixture of Gaussians
 
 
 Best_fit.bimodal <- Best_fit_replicates.final_model %>% filter( Best_fitted_distribution == "bimodal" ) 
@@ -821,7 +816,7 @@ Density_histogram_curve_exp_normal <- Density_histogram_curve_
 
 
 
-#### 5.2. Bimodal model
+#### 5.2. Bimodal (Two-Gaussian) model
 
 ```{r density_histogram_2_fun, fig.width=34, fig.height=15}
 
@@ -903,7 +898,7 @@ ggarrange(plotlist = Density_histogram_curve_bimodal,  align = "hv",
 
 
 
-#### 5.5. Unimodal model
+#### 5.5. Unimodal (One Gaussian) model
 
 ```{r density_histogram_3_fun, fig.width=34, fig.height=15}
 
