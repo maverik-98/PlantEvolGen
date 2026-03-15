@@ -33,8 +33,7 @@ library("broom")
 library("data.table") 
 #install.packages("tidyverse")
 library("tidyverse")
-#install.packages("Hmisc")
-#library("Hmisc")
+
 #install.packages(c("knitr"))
 library("knitr")
 
@@ -46,23 +45,12 @@ library("readxl")
 #install.packages("BiocManager")
 library("BiocManager")
 
-#BiocManager::install(c("GenomicDistributions", "ComplexHeatmap",  "GenomicRanges",
-# "edgeR", "GeneOverlap" ))
+#BiocManager::install(c("GenomicDistributions",   "GenomicRanges" ))
 
 
 library("GenomicRanges")
 library("GenomicDistributions")
 
-
-#install.packages("corrplot")
-library("corrplot")
-
-
-
-#install.packages("shiny")
-#an R package making easy to extract and visualize the output of exploratory multivariate data analyses
-#install.packages('factoextra')
-library("factoextra")
 
 
 
@@ -71,8 +59,6 @@ library("factoextra")
 #remotes::install_github("favorov/GenometriCorr")
 library("GenometriCorr")
 
-
-library("data.table")
 
 
 ```
@@ -88,7 +74,7 @@ For each of the 30 angiosperm species selected for the study we performed BLASTN
 
 # Load BLAST alignments in tabular format. 30 BLASTN files were previously merged and labelled with the abbreviated name of each species (column "Species")
 
-BLAST.df <- read.delim( "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Alignments/BLAST/BLAST_NUPT.tsv" , na.strings=c("","NA"), header = FALSE, sep = "\t", quote = "", dec = "." )
+BLAST.df <- read.delim( "./Alignments/BLAST/BLAST_NUPT.tsv" , na.strings=c("","NA"), header = FALSE, sep = "\t", quote = "", dec = "." )
 
 colnames(BLAST.df) <- c('qseqid', 'sseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', "Species")
 
@@ -142,7 +128,7 @@ BLAST  <- lapply(BLAST, function(x) {
 ### 3. Spatial distribution of NUPTs across plastid genomes
 
 
-A previous study reported an apparent  hyperdonating region in the plastid genome of Asparagus officinalis (https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-019-1975-8). We also detected apparent hyperdonating regions in the plastid genome of moringa (https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-024-09979-5). We examined the spatial distribution of NUPTs across the plastid genomes through BEDtools, which is a suite of utilities  for a wide-range of genomics analysis tasks (https://bedtools.readthedocs.io/en/latest/).
+A previous study reported an apparent  hyperdonating region in the plastid genome of Asparagus officinalis (https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-019-1975-8). We also detected apparent hyperdonating regions in the plastid genome of moringa (https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-024-09979-5). We examined the spatial distribution of NUPTs across the plastid genomes through BEDtools, a suite of utilities  for a wide-range of genomics analysis tasks (https://bedtools.readthedocs.io/en/latest/).
 
 
 
@@ -178,7 +164,7 @@ files.NUPTs.plastid.genome <- c()
 
 for( i in names(BLAST.alignment.coordinates.plastid.genome) ) {
   
-  files.NUPTs.plastid.genome[i] <- paste0("/home/ubuntu/Papers_research/Genomes_NUPT_paper/Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.NUPTs.plastid.genome/" , i, ".NUPTs.Plastid.genome.bed"   )
+  files.NUPTs.plastid.genome[i] <- paste0("./Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.NUPTs.plastid.genome/" , i, ".NUPTs.Plastid.genome.bed"   )
   
   write.table( BLAST.alignment.coordinates.plastid.genome[[i]], 
             file =  files.NUPTs.plastid.genome[i] ,
@@ -264,18 +250,16 @@ for(i in 1:length(BLAST.alignment.coordinates.plastid.genome) ) {
 
 #### 3.2. Detection of non-donating regions and hotspots in plastid genomes   
 
-We used the rule of the Interquartile Range (IQR) to detect large outliers in the the distribution of NUPT counts across the plastid genomes which we classified as hotspots. . Non-donating regions (O overlapping NUPTs) were labelled as coldspots.
+We used the rule of the Interquartile Range (IQR) to detect large outliers in the the distribution of NUPT counts across the plastid genomes which we classified as hotspots. Non-donating regions (Null counts of NUPTs = 0 detected NUPTs) were labelled as coldspots.
 
 
 
 ```{r find_outliers , fig.width=18, fig.height=20}
 
 
-setwd( "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.density.NUPTs.plastid.genome.regions.1" )  ## load directory
+setwd( "./Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.density.NUPTs.plastid.genome.regions.1" )  ## load directory
 
-files <- list.files(path =  "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.density.NUPTs.plastid.genome.regions.1" , pattern = "*.bed")  # BED file (alignments in tabular format)
-
-#files <- files[  str_detect( files, ".*100.*", negate = T ) ]
+files <- list.files(path =  "./Spatial_distribution_analyses/Spatial_distribution_plastid_genome/BED.density.NUPTs.plastid.genome.regions.1" , pattern = "*.bed")  # BED file (alignments in tabular format)
 
 
 NUPT.density.plastid.genome.regions.1 <-  lapply(  files  , function(x) read.delim(x,  sep = "\t" , header = FALSE ) )
@@ -402,7 +386,7 @@ NUPT.density.plastid.genome.hyperdonating.regions.stats <- lapply(  NUPT.density
       
  } )
 
-
+# Create ID column containing the name of the species
 
 for( i in names(NUPT.density.plastid.genome.hyperdonating.regions.stats) ) {
   
@@ -417,7 +401,7 @@ NUPT.density.plastid.genome.hyperdonating.regions.stats.df <- rbindlist(  NUPT.d
 
 
 
-## Coldspots
+## Coldspots (Same steps as for)
 
 
 NUPT.density.plastid.genome.nondonating.regions.stats <- lapply(  NUPT.density.plastid.genome.donating , function(x)  {
@@ -475,10 +459,9 @@ NUPT.density.plastid.genome.nondonating.regions.stats.df <- rbindlist( NUPT.dens
 
 #### 3.3.2. Correlation between NUPT fraction in the nuclear genome and fractions of coldspots and hotspots in the plastid genome
 
+Two non-parametric correlation tests were implemented: Kendall´s and Spearman´s.
 
 ```{r correlation, fig.width=18, fig.height=20}
-
-
 
 
 NUPT_fractions <- read.delim( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/NUPT_fractions' , na.strings=c("","NA"), header = T , sep = "\t", quote = "", dec = "." )
@@ -510,7 +493,7 @@ NUPT_fractions <- read.delim( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/N
 Plastid genomes are typically featured by a quadripartite structure, i.e., they are composed of four canonical regions: Large Single Copy, Inverted Repeat A, Small Single Copy and Inverted Repeat B. 
 
 
-```{r EDA_table1, fig.width=18, fig.height=20}
+```{r plot_1, fig.width=18, fig.height=20}
 
 ### Generate the input (dataframes) for the plots
 
@@ -586,7 +569,7 @@ NUPT.density.plastid.genome.donating  <- lapply(NUPT.density.plastid.genome.regi
 ###
 
 
-Plastid_genome_regions  <-  read_excel( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Properties_genomes_NUPTs.xlsx'  , sheet = "Plastid_genomes_regions_"  ) 
+Plastid_genome_regions  <-  read_excel( 'Genomes_NUPT_paper/Properties_genomes_NUPTs.xlsx'  , sheet = "Plastid_genomes_regions_"  ) 
 
 
 
@@ -634,6 +617,7 @@ Region_color_point = c(  rep( "green", Plastid_genome_regions.list[[i]]$LSC  ),
 
 
 
+### In some species like Medicago truncatula (Mtr) the IRs are absent.
 
 NUPT.density.plastid.genome.donating$Mtr   <-   NUPT.density.plastid.genome.donating$Mtr %>%  mutate( 
 Region = c(  "Genome"  ) ,   
@@ -649,10 +633,8 @@ Region_color_point = c(  "black"  )  )
 ##### 3.4.2. Final plots
 
 
-```{r EDA_table1, fig.width=18, fig.height=20}
+```{r plot_2, fig.width=18, fig.height=20}
 
-
-#### Main Fig.
 
 
 NUPT.density.plastid.genome.regions.1.plots.list <-  lapply(  NUPT.density.plastid.genome.donating , function(x)  {
@@ -663,6 +645,7 @@ NUPT.density.plastid.genome.regions.1.plots.list <-  lapply(  NUPT.density.plast
     donating_region_label =  case_when(  donating_region_color == "red" ~ "",
                                          donating_region_label == donating_region_label ~ donating_region_label  )
   )
+
   plot  <-  ggplot( data =  x ,aes(x = region_id , y = density, group = 1 ) ) +
     geom_line(   color = x$Region_color_line   ) +
     geom_point( #data =  x ,aes(x = region_id , y = density, group = 1 ), size = 0.5
@@ -699,17 +682,6 @@ NUPT.density.plastid.genome.regions.1.plots.list <-  lapply(  NUPT.density.plast
 
 
 
-  
-
- Species.tree =    c("Bol", "Ath", "Mol", "Cpa", "Cfo", "Cme", "Rch", "Mtr", "Vvi", "Mcr", "Sun", 
-                                                      "Ugi", "Cau", "Sly", "Dca", "Nnu", "Osj", "Hvu", "Sbi", "Zma", "Aco", "Mac", 
-                                                      "Asa", "Peq", "Zmr", "Spo", "Cka", "Mbi", "Ach",  "Atr"     )
-
-
-
-
- 
-
 
 
 NUPT.density.plastid.genome.regions.1.plots   <-  ggarrange( plotlist = NUPT.density.plastid.genome.regions.1.plots.list , nrow = 30, ncol = 1, vjust = 0, hjust = 0,
@@ -734,113 +706,6 @@ NUPT.density.plastid.genome.regions.1.plots <-  annotate_figure(  NUPT.density.p
 
 
 
-ggsave(filename = "Main.Fig.3.C.NUPT.density.plastid.genome.regions.1.plots_.png", 
-       NUPT.density.plastid.genome.regions.1.plots, bg = "white",
-       path =  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Figures', 
-       device = "png", 
-       dpi = 300,
-       limitsize = FALSE,
-        width = 10,
-        height = 110,
-       units = "in")
-
-
-
-
-
-#### Suppl. Fig.
-
-
-
-NUPT.density.plastid.genome.regions.1.plots.list <-  lapply(  NUPT.density.plastid.genome.donating , function(x)  {
-  x  <- x %>% mutate(
-    Region_color_point = case_when(  donating_region_color == "red" ~ "red",
-                                     # donating_region_color == "blue" ~ "blue",
-                                     Region_color_point == Region_color_point ~ Region_color_point  ),
-    donating_region_label =  case_when(  donating_region_color == "red" ~ "",
-                                         donating_region_label == donating_region_label ~ donating_region_label  )
-  )
-  plot  <-  ggplot( data =  x ,aes(x = region_id , y = density, group = 1 ) ) +
-    geom_line(   color = x$Region_color_line   ) +
-    geom_point( #data =  x ,aes(x = region_id , y = density, group = 1 ), size = 0.5
-      fill =  x$Region_color_point,  color = x$Region_color_point  ) +
-    coord_cartesian( expand = FALSE) +
-    # geom_text( label = x$donating_region_label ,  color = x$donating_region_color  , size = 3.5   )  +
-    facet_wrap( ~ Species) +
-    scale_y_continuous( #  breaks = seq(0, max(x$density), by = max(x$density)/4  ) ,
-      limits = c(0, max(x$density) ),
-      labels = prettyNum,  breaks =  scales::breaks_pretty()    )  +
-    theme_classic() +
-    theme(
-      legend.title = element_text(face = "bold", vjust = 0.5),
-      legend.position = "none",
-      #axis.title.x = element_text(size = 32, face = "bold", vjust = 0.5),
-      #axis.title.y = element_text(size = 32, face = "bold", vjust = 0.5) )
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      axis.text.x = element_text(size = 12 ,  color = x$donating_region_color, vjust = 2 ),
-      # axis.text.x = element_blank(),
-      axis.text.y = element_text(size = 30 )  ,
-      #  axis.ticks.x  = element_line(color = x$donating_region_color ,  linewidth = 0.5),
-      axis.ticks.x  = element_blank(),
-      axis.line.x =  element_line( linewidth = 1.5 ),
-      axis.line.y =  element_line( linewidth = 1.5 ),
-      strip.background = element_blank(),
-       strip.text = element_text(face = "bold", size = 34 ),
-      # strip.text = element_blank(),
-      # strip.placement = "outside",
-      plot.title = element_text(face = "bold",size = 18, hjust = 0.5, vjust = 0.5 ) ) +
-    scale_x_discrete(limits =  x$region_id, labels =  x$donating_region_label ) +
-    xlab("Plastid genome regions") + ylab("Number of donated NUPTs per base pair")  }
-) 
-
-
-
-
-
-
-
-
-NUPT.density.plastid.genome.regions.1.plots   <-   NUPT.density.plastid.genome.regions.1.plots.list
-
-
-NUPT.density.plastid.genome.regions.1.plots   <-  ggarrange( plotlist = NUPT.density.plastid.genome.regions.1.plots ,
-                                                             nrow = 5, ncol = 6, vjust = 0, hjust = 0,
-                                                             font.label = list(size = 30),  
-                                                             
-                                                             align = "hv"
-                                                             
-                                                             )
-
-
-
-NUPT.density.plastid.genome.regions.1.plots  <-  annotate_figure( NUPT.density.plastid.genome.regions.1.plots ,
-                                                                  left = text_grob(" ", face = "bold", size = 0.1, rot = 90),
-                                                                  top = text_grob(" ", face = "bold", size = 0.01, rot = 0),
-                                                                  right = text_grob(" ", face = "bold", size = 1, rot = 90)
-)
-
-
-NUPT.density.plastid.genome.regions.1.plots <-  annotate_figure(  NUPT.density.plastid.genome.regions.1.plots ,
-                                                                  left = text_grob("Frequency of donated NUPTs per bp",  size = 32, rot = 90),
-                                                                  bottom =  text_grob("1-bp windows",  size = 32 )
-)
-
-
-
-  
-
-  ggsave(filename = "Suppl.Fig.4.NUPT.density.plastid.genome.regions.1.plots.suppl.png", 
-       NUPT.density.plastid.genome.regions.1.plots, bg = "white",
-       path =  '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Figures', 
-       device = "png", 
-       dpi = 300,
-       limitsize = FALSE,
-        width = 30,
-        height = 25,
-       units = "in")
-  
-
 
 ```
 
@@ -849,6 +714,7 @@ NUPT.density.plastid.genome.regions.1.plots <-  annotate_figure(  NUPT.density.p
 
 
 ### 4. Spatial distribution of NUPTs across nuclear genomes
+
 We assessed the spatial arrangement of NUPTs with respect to other genomic features in the nuclear genome. In this script, we focused on TEs and RNA genes. 
 
 1. We ran an overlap analysis  to detect enrichment or impoverishment of NUPTs. The analysis was based on two tests, i.e., chi-squared test  and Jaccard test index. The former uses counts of overlapping base pairs (bp) and is conducted by the function calcExpectedPartitions from the package **GenomicDistributions** whereas the latter uses the Jaccard index and is performed by function GenometriCorrelation from the package **GenometriCorr**. 
@@ -874,8 +740,8 @@ library("GenometriCorr")
 
 # Load coordinates of NUPTs (BLASTN alignments in tabular format) 
 
-BLAST <- read.delim( "/home/user/Downloads/BLAST_NUPT.tsv" , na.strings=c("","NA"), header = FALSE, sep = "\t", quote = "", dec = "." )    ## Load BLAST files that were previously merged and tagged
-colnames(BLAST) <- c('qseqid', 'sseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', "Species")  ## The species column distinguishes each dataframe
+BLAST <- read.delim( "BLAST_NUPT.tsv" , na.strings=c("","NA"), header = FALSE, sep = "\t", quote = "", dec = "." )    ## Load BLAST files that were previously merged and tagged
+colnames(BLAST) <- c('qseqid', 'sseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', "Species")  ## The "Species" column distinguishes each dataframe
 
 #Convert to list of dataframes
 BLAST <- split(BLAST, BLAST$Species)
@@ -914,9 +780,9 @@ BLAST  <- lapply(BLAST, function(x) {
     
 # Load text file containing sizes of individual chromosomes and scaffolds   
     
-  setwd(  "/home/user/NuclearGenomes_Chromosomes_Sizes"  )
+  setwd(  "NuclearGenomes_Chromosomes_Sizes"  )
   
-  files <- list.files(path =  "/home/user/NuclearGenomes_Chromosomes_Sizes"  , pattern = "size")  
+  files <- list.files(path =  "NuclearGenomes_Chromosomes_Sizes"  , pattern = "size")  
   
   scaffold.sizes <-  read.delim( files[i],  sep = "\t" , header = FALSE, quote = "" )  
   
@@ -926,9 +792,9 @@ BLAST  <- lapply(BLAST, function(x) {
   
   # Load text file containing coordinates of TEs   
   
-  setwd(  "/home/user/TE_classification"   )
+  setwd(  "TE_classification"   )
   
-  files <- list.files(path =  '/home/user/TE_classification'  , pattern = "bed")
+  files <- list.files(path =  'TE_classification'  , pattern = "bed")
   
   
   
@@ -1006,13 +872,8 @@ BLAST  <- lapply(BLAST, function(x) {
       
         
       
-      z <- GenometriCorrelation(   NUPTs_ , Partition , chromosomes.length =  scaffold.sizes.vector_ , awhole.only = T,   # Perform test on the genome as a whole
-                                 #  permut.number = 1000, 
-                                 ecdf.area.permut.number = 1000,  # Only perform RDT
-                                 mean.distance.permut.number = 1, 
-                                 jaccard.measure.permut.number = 1,
-                                 
-                                 
+      z <- GenometriCorrelation(   NUPTs_ , Partition , chromosomes.length =  scaffold.sizes.vector_ , awhole.only = T,   # Perform test only on the genome as a whole and not each individual chromosome
+                                   permut.number = 1000, 
                                    keep.distributions = F, 
                                  representing.point.function = mitl1 )
       
@@ -1049,18 +910,17 @@ BLAST  <- lapply(BLAST, function(x) {
 ```{r GenometriCorr_2  , fig.width=18, fig.height=12}
 
 
-
-
 ## TE order
 
 
-load( '/home/ubuntu/Papers_research/Genomes_NUPT_paper/Spatial_distribution_analyses/Spatial.analysis.NUPTs.NoDupl.TE.Order.RData'   )
+load( './Spatial_distribution_analyses/Spatial.analysis.NUPTs.NoDupl.TE.Order.RData'   )
 
 
 Spatial.analysis.NUPTs.TE.Order  <- Filter(function(x) !is.data.frame(x), Spatial.analysis.NUPTs.TE.Order)
 
 
-# Extract list "awhole"
+# Extract list "awhole" (Corresponds to the genome, i.e., the chromosomes as a whole)
+
 Spatial.analysis.NUPTs.TE_order.awhole <-   lapply( Spatial.analysis.NUPTs.TE.Order, function(x)   {
   x <- lapply(x, function(y) {
     if( length(  names( y   ) ) == 1 )  {
@@ -1092,7 +952,7 @@ Spatial.analysis.NUPTs.TE_order.awhole  <-  lapply(Spatial.analysis.NUPTs.TE_ord
 
 
 
-# Merge list into dataframe. To distinguish between species, we create the column "Species"
+# Merge list into dataframe. As a preliminary step, to distinguish the species, we create the column "Species"
 
 for( i in names(Spatial.analysis.NUPTs.TE_order.awhole)   )  {
   Spatial.analysis.NUPTs.TE_order.awhole[[i]]$Species <- i
@@ -1112,16 +972,6 @@ Spatial.analysis.NUPTs.TE_order.awhole.df$relative.distances.ecdf.area.correlati
 
 Spatial.analysis.NUPTs.TE_order.awhole.df <- Spatial.analysis.NUPTs.TE_order.awhole.df %>%
   dplyr::select( contains( c("jaccard", "relative.distances.ecdf", "feature", "Species" )   ) )
-
-
-
-Spatial.analysis.NUPTs.TE_order.awhole.df <- Spatial.analysis.NUPTs.TE_order.awhole.df %>% mutate( relative.distances.ecdf.deviation.area.p.value = case_when(  
-  
-  relative.distances.ecdf.deviation.area.p.value  == "<2"   ~ "<0.002",  # Correct bug of the program
-  relative.distances.ecdf.deviation.area.p.value  == relative.distances.ecdf.deviation.area.p.value   ~ relative.distances.ecdf.deviation.area.p.value
-  
-    )  
-  )
 
 
 ## Classify based on spatial correlation coefficients and p-values  
@@ -1161,16 +1011,16 @@ Spatial.analysis.NUPTs.TE_order.awhole.df <-  Spatial.analysis.NUPTs.TE_order.aw
 #### 4.2. Overlap tests performed on RNA genes
 
 
-##### 4.2.1. Test based on counts of overlapping bp 
+##### 4.2.1. Test based on counts of overlapping bp (Chi-squared test) 
 
 
 ```{r GenomicDistributions, fig.width=18, fig.height=12}
 
 
-# library("GenomicDistributions")
+library("GenomicDistributions")
 
 
-## We customized the function used by the the program to calculate the overlap with the aim of generating more data
+## We customized the function used by the the package to calculate the overlap with the aim of generating more data
 
 
 calcExpectedPartitions_alt <-  function (query, partitionList, genomeSize = NULL, remainder = "intergenic", 
@@ -1207,7 +1057,7 @@ calcExpectedPartitions_alt <-  function (query, partitionList, genomeSize = NULL
                                                                     N = (genomeSize - sum(partitionCounts$N))))
   }
   
-  Total_sizes = data.frame(  Total_size_feature =  partitionCounts$N, partition = partitionCounts$partition, GenomeSize = genomeSize, query_size =  query_total   ) ## New code
+  Total_sizes = data.frame(  Total_size_feature =  partitionCounts$N, partition = partitionCounts$partition, GenomeSize = genomeSize, query_size =  query_total   ) ### New code
   #Total_sizes =  Total_sizes[ with(Total_sizes, order(partition)),   ]
   
   partitionCounts$N = partitionCounts$N/genomeSize * query_total
@@ -1271,7 +1121,7 @@ calcExpectedPartitions_alt <-  function (query, partitionList, genomeSize = NULL
 ## Load and prepare datasets 
 
 
-# We have to merge overlapping genomic features of the same class. This operation  eliminates redundant overlaps between genomic features 
+# We have to merge overlapping genomic features of the same class. This operation  eliminates redundant overlaps between two diffent classes of genomic features 
 
 
 
@@ -1298,7 +1148,7 @@ for( i in c(1:length(Overlap.alt.analysis)) )  {
   )
   
   
-  NUPTs <-  GenomicRanges::reduce(NUPTs)  # Merge overlapping intervals
+  NUPTs <-  GenomicRanges::reduce(NUPTs)  # Merge overlapping genomic intervals
   
   
   NUPTs <- as.data.frame(NUPTs)[, c(1:3) ]
@@ -1327,23 +1177,13 @@ for( i in c(1:length(Overlap.alt.analysis)) )  {
  # RNA genes 
   
   
-  setwd(  "/home/ubuntu/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear/Output_RFAM"   )
+  setwd(  "./RNA_genes/Nuclear/Output_RFAM"   )
   
-  files <- list.files(path =  "/home/ubuntu/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear/Output_RFAM"  , pattern = "tsv")
+  files <- list.files(path =  "./RNA_genes/Nuclear/Output_RFAM"  , pattern = "tsv")
  
-# Classify RNA genes   
   
   RNA.genes <-  read.delim(files[i],  sep = "\t" , header = FALSE, quote = "" )  
-  
-  RNA.genes <- RNA.genes %>% mutate( V4 = case_when(  str_detect(V4, "eukarya|micros|5S|8S", negate = FALSE ) ~ "Eukaryotic rRNA",
-                                                      str_detect(V4, "_bacteria|arch", negate = FALSE ) ~ "Prokaryotic rRNA",
-                                                      str_detect(V4, "Intron|group", negate = FALSE ) ~ "Self-splicing intron",
-                                                      str_detect(V4, "mir|MIR|miR|sno|SNO|sn|IsrR|IRE_|sca|SCA|Telo", negate = FALSE ) ~ "Regulatory RNA",
-                                                      str_detect(V4, "_bacteria|Intron|group|eukarya|arch|micros|5S|8S|IsrR|IRE_|sca|SCA|Telo|mir|MIR|sno|sn|SNO|U[0-9]+", negate = TRUE ) ~ "Other RNA",
-                                                      str_detect(V4, "DLEU1_1", negate = FALSE ) ~ "Other RNA",
-                                                      str_detect(V4, "U[0-9]+", negate = FALSE ) ~ "Spliceosomal RNA"  )  )
-  
-  
+    
   RNA.genes <- split( RNA.genes, RNA.genes$V4  )
   
   RNA.genes <- lapply( RNA.genes, function(x)  {
@@ -1365,53 +1205,12 @@ for( i in c(1:length(Overlap.alt.analysis)) )  {
     
   }   )   
   
- 
-  
-  
-  # tRNA genes 
-  
-  
-  setwd(  "/home/ubuntu/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear_tRNA/tRNA_classification/Final_classification"   )
-  
-  files <- list.files(path =  '/home/ubuntu/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear_tRNA/tRNA_classification/Final_classification'  , pattern = "bed")
-  
-    # Classify tRNA genes 
-  tRNA.genes <-  read.delim(files[i],  sep = "\t" , header = FALSE, quote = "" )
-  
-  tRNA.genes <- tRNA.genes %>% mutate( V4 = case_when(  str_detect(V4, "Nuclear", negate = FALSE ) ~ "Nuclear tRNA",
-                                                        str_detect(V4, "Plastid", negate = FALSE ) ~ "Plastid tRNA",
-                                                        str_detect(V4, "Mito", negate = FALSE ) ~ "Mitochondrial tRNA"   )  )
-  
-  tRNA.genes <- split( tRNA.genes, tRNA.genes$V4  )
-  
-  tRNA.genes <- lapply( tRNA.genes, function(x)  {
-    
-    x <- x[, c(1:3) ]
-    
-    
-    x <- GRanges(
-      seqnames = Rle(x[, 1]),
-      ranges = IRanges(start = x[, 2], end = x[, 3] )
-    )
-    
-    
-    x <- GenomicRanges::reduce(x)  
-    
-    
-    x <- as.data.frame(x)[, c(1:3) ]
-    
-    
-    x
-    
-  }   )   
-  
-  
-  
+
   
   print(i)
   
   
-  Partitions <- c( RNA.genes, tRNA.genes  )
+  Partitions <-  RNA.genes
   
   
   Partitions <- lapply( Partitions , setNames, nm = c('chromosome_name', 'chromosome_start','chromosome_end' )  )
@@ -1442,7 +1241,7 @@ for( i in c(1:length(Overlap.alt.analysis)) )  {
   Overlap.calc$Species <- names(Overlap.alt.analysis)[i]
   
   
-  Overlap.calc[Overlap.calc == -Inf] <- 0
+  Overlap.calc[Overlap.calc == -Inf] <- 0  ##  -Inf values indicate zero overlapping bp between two classes of genomic features. We have to convert them to 0.
   
   
   Overlap.alt.analysis[[i]] =  Overlap.calc
@@ -1474,9 +1273,9 @@ library("GenometriCorr")
   for( i in c(1:length(Spatial.analysis.NUPTs.RNA) ) )  {
     
     
-setwd(  "/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/NuclearGenomes/NuclearGenomes_Chromosomes_Sizes"  )
+setwd(  "./NuclearGenomes/NuclearGenomes_Chromosomes_Sizes"  )
 
-    files <- list.files(path =  "/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/NuclearGenomes/NuclearGenomes_Chromosomes_Sizes"  , pattern = "size") 
+    files <- list.files(path =  "./NuclearGenomes/NuclearGenomes_Chromosomes_Sizes"  , pattern = "size") 
 
 scaffold.sizes <-  read.delim( files[i],  sep = "\t" , header = FALSE, quote = "" )  
 
@@ -1497,26 +1296,13 @@ names(scaffold.sizes.vector) <-  scaffold.sizes$V1
     NUPTs <- reduce(NUPTs) 
     
     
-  #  NUPTs <- GRanges(
-  #  seqnames = Rle(NUPTs[, 1]),
-  #  ranges = IRanges(start = NUPTs[, 2], end = NUPTs[, 3] )  )
- 
-    
 
-    setwd(  "/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear/Output_RFAM"   )
+    setwd(  "./RNA_genes/Nuclear/Output_RFAM"   )
     
-    files <- list.files(path =  "/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear/Output_RFAM"  , pattern = "tsv")
+    files <- list.files(path =  "./RNA_genes/Nuclear/Output_RFAM"  , pattern = "tsv")
     
     
     RNA.genes <-  read.delim(files[i],  sep = "\t" , header = FALSE, quote = "" )  
-    
-    RNA.genes <- RNA.genes %>% mutate( V4 = case_when(  str_detect(V4, "eukarya|micros|5S|8S", negate = FALSE ) ~ "Eukaryotic rRNA",
-                                                        str_detect(V4, "_bacteria|arch", negate = FALSE ) ~ "Prokaryotic rRNA",
-                                                        str_detect(V4, "Intron|group", negate = FALSE ) ~ "Self-splicing intron",
-                                                        str_detect(V4, "mir|MIR|miR|sno|SNO|sn|IsrR|IRE_|sca|SCA|Telo", negate = FALSE ) ~ "Regulatory RNA",
-                                                        str_detect(V4, "_bacteria|Intron|group|eukarya|arch|micros|5S|8S|IsrR|IRE_|sca|SCA|Telo|mir|MIR|sno|sn|SNO|U[0-9]+", negate = TRUE ) ~ "Other RNA",
-                                                        str_detect(V4, "DLEU1_1", negate = FALSE ) ~ "Other RNA",
-                                                        str_detect(V4, "U[0-9]+", negate = FALSE ) ~ "Spliceosomal RNA"  )  )
     
     
     RNA.genes <- split( RNA.genes, RNA.genes$V4  )
@@ -1540,47 +1326,8 @@ names(scaffold.sizes.vector) <-  scaffold.sizes$V1
       
     }   )   
     
-    
-    
-    setwd(  "/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear_tRNA/tRNA_classification/Final_classification"   )
-    
-    files <- list.files(path =  '/home/jpmr/Synology/ProyectoTFGOrganelle2Nucleus/RNA_genes/Nuclear_tRNA/tRNA_classification/Final_classification'  , pattern = "bed")
-    
-    
-    tRNA.genes <-  read.delim(files[i],  sep = "\t" , header = FALSE, quote = "" )
-    
-    tRNA.genes <- tRNA.genes %>% mutate( V4 = case_when(  str_detect(V4, "Nuclear", negate = FALSE ) ~ "Nuclear tRNA",
-                                                          str_detect(V4, "Plastid", negate = FALSE ) ~ "Plastid tRNA",
-                                                          str_detect(V4, "Mito", negate = FALSE ) ~ "Mitochondrial tRNA"   )  )
-    
-    tRNA.genes <- split( tRNA.genes, tRNA.genes$V4  )
-    
-    tRNA.genes <- lapply( tRNA.genes, function(x)  {
-      
-      x <- x[, c(1:3) ]
-      
-      
-      x <- GRanges(
-        seqnames = Rle(x[, 1]),
-        ranges = IRanges(start = x[, 2], end = x[, 3] )
-      )
-      
-      
-      x <- reduce(x) 
-      
-      
-      x <- as.data.frame(x)[, c(1:3) ]
-      
-      
-      x
-      
-    }   )   
-    
-    
-    
-    
-    
-    Partitions <- c( RNA.genes, tRNA.genes  )
+        
+    Partitions <-  RNA.genes
   
     
   
@@ -1638,7 +1385,7 @@ names(scaffold.sizes.vector) <-  scaffold.sizes$V1
   Spatial.analysis.NUPTs.RNA [[i]]  <- Partitions
   
   
-  save( Spatial.analysis.NUPTs.RNA ,  file = "/home/user/Spatial.analysis.NUPTs.RNA.RData" ) ## Save results
+  save( Spatial.analysis.NUPTs.RNA ,  file = "Spatial.analysis.NUPTs.RNA.RData" ) ## Save results
   
   
   
@@ -1670,7 +1417,7 @@ Overlap.alt.analysis_final.merged.df <- Overlap.alt.analysis_final.merged.df %>%
 
 ## Jaccard test (Same code for processing the results of the RDT)
 
-load(  "/home/ubuntu/Papers_research/Genomes_NUPT_paper/Spatial_distribution_analyses/Spatial.analysis.NUPTs.genomic_features.RData"  )
+load(  "./Spatial_distribution_analyses/Spatial.analysis.NUPTs.RNA.RData"  )
 
 
 
@@ -1721,7 +1468,6 @@ Spatial.analysis.NUPTs.RNA.awhole.df$relative.distances.ecdf.area.correlation  <
 
 Spatial.analysis.NUPTs.RNA.awhole.df_ <-  Spatial.analysis.NUPTs.RNA.awhole.df %>%
   dplyr::select( contains( c("jaccard", "relative.distances.ecdf", "feature", "Species" )   ) )
-#Spatial.analysis.NUPTs.RNA.awhole.df_ <-   Spatial.analysis.NUPTs.RNA.awhole.df_  %>%  filter( jaccard.measure == 0 )
 
 Spatial.analysis.NUPTs.RNA.awhole.df <- Spatial.analysis.NUPTs.RNA.awhole.df %>%
   dplyr::select( contains( c("jaccard", "relative.distances.ecdf", "feature" )   ) )
